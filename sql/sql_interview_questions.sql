@@ -270,3 +270,127 @@ select emp_name,dept_name,salary,
 lag(salary) over(partition by dept_name order by emp_id) as prev_salary
 from employees_wf
 ) as x;
+
+-- 22)Find only those employees whose salary increased compared with the previous employee in the same department.
+
+SELECT emp_id,emp_name,dept_name
+from
+(
+select *,
+lag(salary) over(partition by dept_name order by emp_id) as prev_emp_sal
+from employees_wf
+) as x 
+where salary>prev_emp_sal;
+
+
+-- 23)Find employees whose salary decreased compared with the previous employee in the same department.
+select emp_id,emp_name,dept_name
+from
+(
+select *,
+lag(salary) over(partition by dept_name order by emp_id) as prev_emp_sal
+from employees_wf
+) as x
+where salary<prev_emp_sal;
+
+
+
+-- 24)Using sales_wf, calculate a running total of sales by date.
+select order_id,order_date,sales_amount,
+sum(sales_amount) over(order by order_date,order_id) as running_sales
+from sales_wf;
+
+-- 25)Calculate a running total of sales separately for each region, ordered by date,id.
+select order_id,region,order_date,sales_amount,
+sum(sales_amount) over(partition by region order by order_date,order_id)as running_sales
+from sales_wf;
+
+-- 26)Find the previous order amount for every customer.
+select order_id,customer_id,customer_name,order_date,sales_amount,
+lag(sales_amount) over(partition by customer_id order by order_date) as prev_order_amount
+from sales_wf;
+
+-- 27)Find the next order date for every customer.
+select order_id,customer_id,customer_name,sales_amount,order_date,
+lead(order_date) over(partition by customer_id order by order_date, order_id) as next_order_date
+from sales_wf;
+
+-- 28)Calculate the number of days between two consecutive orders for each customer.
+select order_id,customer_id,customer_name,order_date,prev_order_date,
+DATEDIFF(order_date,prev_order_date) as days
+from 
+(
+select *,
+lag(order_date) over(partition by customer_id order by order_date,order_id) as prev_order_date
+from sales_wf) as x;
+
+
+-- 29)Find the most recent order for every customer.
+select order_id,customer_id,customer_name,order_date
+from
+(
+select order_id,customer_id,customer_name,order_date,
+dense_rank() over(partition by customer_id order by order_date desc) as recent_order
+from sales_wf
+) as x
+where recent_order=1;
+
+
+
+-- 30)Find the first order for every customer.
+select order_id,customer_id,customer_name,order_date
+from
+(
+select order_id,customer_id,customer_name,order_date,
+row_number() over(partition by customer_id order by order_date asc) as first_order_date
+from sales_wf
+) as x
+where first_order_date=1;
+
+
+-- 31)Find each customer’s highest-value transaction.
+select customer_id,customer_name,sales_amount
+from 
+(
+select customer_id,customer_name,sales_amount,
+row_number() over(partition by customer_name order by sales_amount desc) as high_val_trans
+from sales_wf
+) as x
+where high_val_trans=1;
+
+-- 32)Find the top 2 transactions for every customer based on sales_amount.
+select customer_id,customer_name,sales_amount
+from
+(
+select customer_id,customer_name,sales_amount,
+row_number() over(partition by customer_id order by sales_amount desc) as top_2_trans
+from sales_wf
+)as x
+where top_2_trans<=2;
+
+-- 33)Find the top 3 products by total sales within each category.
+SELECT category, product, total_sales
+FROM (
+    SELECT category,
+           product,
+           total_sales,
+           DENSE_RANK() OVER(
+               PARTITION BY category
+               ORDER BY total_sales DESC
+           ) AS rnk
+    FROM (
+        SELECT category,
+               product,
+               SUM(sales_amount) AS total_sales
+        FROM sales_wf
+        GROUP BY category, product
+    ) AS x
+) AS y
+WHERE rnk <= 3;
+
+
+-- 34)Calculate the cumulative sales for every customer.
+-- This time, for each customer, sales should keep adding as their orders progress over time.
+select order_id,customer_id,customer_name,
+sum(sales_amount) over (partition by customer_id order by order_date,order_id) as cumulative_sales
+from sales_wf;

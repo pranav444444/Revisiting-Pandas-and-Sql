@@ -100,5 +100,37 @@ on c.customer_id=o.customer_id;
 
 -- RIGHT JOIN/RIGHT OUTER JOIN 
 -- 45:00
+select *
+from customers c
+right join orders o
+on c.customer_id=o.customer_id;
+
+select *
+from customers c
+right outer join orders o
+on c.customer_id=o.customer_id;
+
+select *
+from customers c
+right join orders o
+on c.customer_id=o.customer_id
+where o.sales>15000 
+order by o.sales desc;
+
+select *
+from customers c
+right join orders o
+on c.customer_id=o.customer_id
+where o.sales>15000 
+order by o.sales desc
+limit 2;
+
+-- FULL OUTER JOIN
+
+-- select *
+-- from customers c
+-- FULL OUTER JOIN orders o
+-- on c.customer_id=o.customer_id;
+-- this will not execure in mysql workbench as it does not have full outer join
 
 

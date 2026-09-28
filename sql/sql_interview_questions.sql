@@ -394,3 +394,161 @@ WHERE rnk <= 3;
 select order_id,customer_id,customer_name,
 sum(sales_amount) over (partition by customer_id order by order_date,order_id) as cumulative_sales
 from sales_wf;
+
+
+-- 35)Compare each customer’s current transaction amount with their previous transaction amount.
+select customer_name,sales_amount,prev_sales_amount,
+case
+when sales_amount>prev_sales_amount then 'high'
+when sales_amount<prev_sales_amount then 'low'
+when sales_amount=prev_sales_amount then 'equal'
+else 'no sales found'
+end as comparision
+from
+(
+select customer_name,sales_amount,
+lag(sales_amount) over (partition by customer_id order by order_date,order_id) as prev_sales_amount
+from sales_wf
+) as x;
+
+-- 36)Find transactions whose amount is greater than that customer’s average transaction amount.
+select customer_name,sales_amount
+from
+(
+select customer_name,sales_amount,
+case
+when sales_amount>avg_sales then 'high'
+when sales_amount<avg_sales then 'low'
+when sales_amount=avg_sales then 'equal'
+else 'no sales found'
+end as average_comparision
+from
+	(
+	select customer_name,sales_amount,
+	avg(sales_amount) over(partition by customer_id) as avg_sales
+	from sales_wf
+	) as x
+   ) as y
+where average_comparision='high';
+
+
+-- 37)Find the second-highest distinct salary in each department.
+select emp_id,emp_name,dept_name,salary
+from
+(
+select emp_id,emp_name,dept_name,salary,
+dense_rank() over(partition by dept_name order by salary desc)as high_salary
+from employees_wf
+) as x
+where high_salary=2;
+
+-- 38)Explain and demonstrate the difference between ROW_NUMBER(), RANK(), and DENSE_RANK() using the same data.
+SELECT emp_id,
+       emp_name,
+       dept_name,
+       salary,
+
+       ROW_NUMBER() OVER(
+           PARTITION BY dept_name
+           ORDER BY salary DESC
+       ) AS rn,
+
+       RANK() OVER(
+           PARTITION BY dept_name
+           ORDER BY salary DESC
+       ) AS rnk,
+
+       DENSE_RANK() OVER(
+           PARTITION BY dept_name
+           ORDER BY salary DESC
+       ) AS drnk
+
+FROM employees_wf;
+
+-- 39)Remove duplicate business records using ROW_NUMBER().
+
+
+-- DELETE FROM sales_wf
+-- WHERE order_id IN (
+--     SELECT order_id
+--     FROM (
+--         SELECT order_id,
+--                ROW_NUMBER() OVER(
+--                    PARTITION BY customer_id,
+--                                 region,
+--                                 category,
+--                                 product,
+--                                 order_date,
+--                                 sales_amount
+--                    ORDER BY order_id
+--                ) AS rn
+--         FROM sales_wf
+--     ) AS x
+--     WHERE rn > 1
+-- );
+
+SELECT *
+FROM (
+    SELECT *,
+           ROW_NUMBER() OVER(
+               PARTITION BY customer_id,
+                            region,
+                            category,
+                            product,
+                            order_date,
+                            sales_amount
+               ORDER BY order_id
+           ) AS rn
+    FROM sales_wf
+) AS x
+WHERE rn > 1;
+
+-- 40) Find duplicate business records using ROW_NUMBER().
+SELECT *
+FROM (
+    SELECT *,
+           ROW_NUMBER() OVER(
+               PARTITION BY customer_id,
+                            region,
+                            category,
+                            product,
+                            order_date,
+                            sales_amount
+               ORDER BY order_id
+           ) AS rn
+    FROM sales_wf
+) AS x
+WHERE rn > 1;
+
+-- 41)Find month-wise sales and calculate the previous month's sales using LAG().
+SELECT month,LAG(total_sales) over (order by month) as prev_month_sales
+from 
+(
+select DATE_FORMAT(order_date,'%Y-%m') as month,sum(sales_amount) as total_sales
+from sales_wf
+group by month
+)as x;
+
+
+-- 42)Calculate month-over-month sales growth.
+SELECT month,
+       total_sales,
+       prev_month_sales,
+       ROUND(
+           ((total_sales - prev_month_sales) / prev_month_sales) * 100,
+           2
+       ) AS growth_percentage
+FROM (
+    SELECT month,
+           total_sales,
+           LAG(total_sales) OVER(
+               ORDER BY month
+           ) AS prev_month_sales
+    FROM (
+        SELECT DATE_FORMAT(order_date, '%Y-%m') AS month,
+               SUM(sales_amount) AS total_sales
+        FROM sales_wf
+        GROUP BY DATE_FORMAT(order_date, '%Y-%m')
+    ) AS x
+) AS y;
+
